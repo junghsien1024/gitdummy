@@ -16,6 +16,18 @@ repos = json.load(open('repos.json'))
 
 origWD = os.getcwd() # remember our original working directory
 
+def get_current_branch():
+    try:
+        branch = subprocess.check_output([
+            'git',
+            'rev-parse',
+            '--abbrev-ref',
+            'HEAD'
+        ]).decode('utf-8').strip()
+        return branch
+    except:
+        return 'main'
+
 def init():
     subprocess.call([
         'git',
@@ -47,12 +59,13 @@ def init():
         'origin',
         repo['remote']
     ])
+    branch = get_current_branch()
     subprocess.call([
         'git',
         'push',
         '-u',
         'origin',
-        'master'
+        branch
     ])
 
 for repo in repos:
@@ -88,24 +101,28 @@ for repo in repos:
         os.chdir(targetrepo) # switch back to the target repo
 
         print('since: '+since)
-        if since == '':
-            log_output = subprocess.check_output([
-                'git',
-                'log',
-                '--reverse',
-                '--pretty=format:%an||||%ae||||%ad||||%s||||%f-%h'
-            ])
-        else:
-            log_output = subprocess.check_output([
-                'git',
-                'log',
-                '--since',
-                since,
-                '--reverse',
-                '--pretty=format:%an||||%ae||||%ad||||%s||||%f-%h'
-            ])
-
-        log_split = log_output.decode('utf-8').split('\n')
+        try:
+            if since == '':
+                log_output = subprocess.check_output([
+                    'git',
+                    'log',
+                    '--reverse',
+                    '--pretty=format:%an||||%ae||||%ad||||%s||||%f-%h'
+                ])
+            else:
+                log_output = subprocess.check_output([
+                    'git',
+                    'log',
+                    '--since',
+                    since,
+                    '--reverse',
+                    '--pretty=format:%an||||%ae||||%ad||||%s||||%f-%h'
+                ])
+            log_split = log_output.decode('utf-8').split('\n')
+        except subprocess.CalledProcessError:
+            # No commits in the repository yet
+            print("No commits found in repository: " + targetrepo)
+            log_split = []
 
         print("Log Split Length: {}".format(len(log_split)))
 
@@ -193,13 +210,14 @@ for repo in repos:
                     require_push = True
 
         if repo['auto_push'] is True and require_push is True:
+            branch = get_current_branch()
             if repo['force'] is True:
                 subprocess.call([
                     'git',
                     'push',
                     '-u',
                     'origin',
-                    'master',
+                    branch,
                     '--force'
                 ])
             else:
@@ -208,7 +226,7 @@ for repo in repos:
                     'push',
                     '-u',
                     'origin',
-                    'master'
+                    branch
                 ])
 
         try:
